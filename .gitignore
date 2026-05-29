@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+build/
+dist/
+*.egg-info/
+
+# Environment
+.env
+
+# Testing & Logs
+.pytest_cache/
+*.log
+logs/
+
+# Screenshots
+screenshots/*.png
+!screenshots/.gitkeep
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# IDE 
+.vscode/
+.idea/
