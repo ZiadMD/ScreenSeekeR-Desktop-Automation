@@ -7,12 +7,13 @@ from src.utils.logging import logger
 
 class LLMClient:
     """
-    Unified, provider-agnostic client wrapper for Google Gemini, OpenAI, Groq, and Ollama APIs.
+    Unified, provider-agnostic client wrapper for Google Gemini, OpenAI, Groq, Ollama,
+    and local models (e.g. GUI-Actor).
     Specifically designed for Vision models to support desktop grounding.
     """
     def __init__(
         self,
-        provider: Optional[Literal["gemini", "openai", "groq", "ollama"]] = None,
+        provider: Optional[Literal["gemini", "openai", "groq", "ollama", "local"]] = None,
         model_name: Optional[str] = None
     ):
         self.provider = provider or settings.LLM_PROVIDER
@@ -49,6 +50,21 @@ class LLMClient:
             # Setup custom host client
             self.client = ollama.Client(host=settings.OLLAMA_API_URL)
             
+        elif self.provider == "local":
+            from src.grounding.local_model.client import LocalModelClient
+            model_path = settings.resolved_local_model_path
+            if model_path is None:
+                logger.error("LOCAL_MODEL_PATH is not set in .env! Local model operations will fail.")
+                raise ValueError("LOCAL_MODEL_PATH is not set in .env")
+            self.client = LocalModelClient(
+                model_type=settings.LOCAL_MODEL_TYPE,
+                model_path=str(model_path),
+                device=settings.LOCAL_DEVICE,
+                torch_dtype=settings.LOCAL_TORCH_DTYPE,
+                attn_impl=settings.LOCAL_ATTN_IMPL,
+                max_pixels=settings.LOCAL_MAX_PIXELS,
+            )
+            
         else:
             raise ValueError(f"Unknown LLM provider: {self.provider}")
 
@@ -74,6 +90,8 @@ class LLMClient:
                 return self._call_groq(image, system_prompt, user_prompt, json_response)
             elif self.provider == "ollama":
                 return self._call_ollama(image, system_prompt, user_prompt, json_response)
+            elif self.provider == "local":
+                return self._call_local(image, system_prompt, user_prompt, json_response)
         except Exception as e:
             logger.error(f"Error calling vision API for provider {self.provider}: {e}")
             raise
@@ -204,3 +222,18 @@ class LLMClient:
         if not content:
             raise ValueError("Empty response received from Ollama API.")
         return content
+
+    def _call_local(
+        self,
+        image: Image.Image,
+        system_prompt: str,
+        user_prompt: str,
+        json_response: bool
+    ) -> str:
+        """Delegates to the LocalModelClient which wraps local model adapters."""
+        return self.client.call_vision_api(
+            image=image,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            json_response=json_response
+        )

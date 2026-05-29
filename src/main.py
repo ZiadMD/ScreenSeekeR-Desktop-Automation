@@ -34,7 +34,7 @@ def run_orchestrator():
     try:
         screenseeker = ScreenSeeker()
         notepad_workflow = NotepadWorkflow(screenseeker)
-        popup_handler = PopupHandler(screenseeker.client)
+        popup_handler = PopupHandler(screenseeker.planner_client)
     except Exception as e:
         logger.critical(f"Critical error initializing automation components: {e}. Check API keys.")
         sys.exit(1)

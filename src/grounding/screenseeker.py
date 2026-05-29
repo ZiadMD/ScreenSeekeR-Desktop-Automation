@@ -18,11 +18,37 @@ class ScreenSeeker:
     """
     Core ScreenSeekeR visual search engine orchestrator.
     Combines Planner, Grounder, Scoring, NMS, and recursive crops.
+    
+    Supports hybrid mode: separate providers for planner (e.g. Gemini API)
+    and grounder (e.g. local GUI-Actor model). If the API planner fails,
+    falls back to using the local model for both roles.
     """
     def __init__(self, client: Optional[LLMClient] = None):
-        self.client = client or LLMClient()
-        self.planner = Planner(self.client)
-        self.grounder = Grounder(self.client)
+        # Determine separate providers for planner and grounder
+        planner_provider = settings.PLANNER_PROVIDER or settings.LLM_PROVIDER
+        grounder_provider = settings.GROUNDER_PROVIDER or settings.LLM_PROVIDER
+
+        if client is not None:
+            # Explicit client passed — use it for both (backwards compatible)
+            self.planner_client = client
+            self.grounder_client = client
+        elif planner_provider == grounder_provider:
+            # Same provider for both — share one client
+            shared_client = LLMClient(provider=planner_provider, model_name=settings.PLANNER_MODEL)
+            self.planner_client = shared_client
+            self.grounder_client = shared_client
+        else:
+            # Hybrid mode: separate clients for planner and grounder
+            logger.info(f"Hybrid mode: Planner={planner_provider}, Grounder={grounder_provider}")
+            self.planner_client = LLMClient(provider=planner_provider, model_name=settings.PLANNER_MODEL)
+            self.grounder_client = LLMClient(provider=grounder_provider, model_name=settings.GROUNDER_MODEL)
+
+        self.planner = Planner(self.planner_client)
+        self.grounder = Grounder(self.grounder_client)
+
+        # Track fallback provider for when API planner fails
+        self._grounder_provider = grounder_provider
+        self._planner_provider = planner_provider
 
     def locate_element(
         self,
@@ -43,9 +69,32 @@ class ScreenSeeker:
         phys_w, phys_h = full_screenshot.size
         
         # 2. Ask Planner to propose candidate regions
-        planner_response = self.planner.propose_candidate_regions(full_screenshot, instruction)
-        candidates = planner_response.get("candidates", [])
-        
+        #    If the API planner fails and we have a local model, fall back to local for both roles
+        planner_response = None
+        try:
+            planner_response = self.planner.propose_candidate_regions(full_screenshot, instruction)
+            candidates = planner_response.get("candidates", [])
+        except Exception as e:
+            logger.warning(f"Planner API call failed: {e}")
+            candidates = []
+
+        # Fallback: if API planner failed/returned empty and we have a local grounder,
+        # use the local model directly on the full screenshot (bypass cascaded search)
+        if not candidates and self._grounder_provider == "local" and self._planner_provider != "local":
+            logger.warning("API planner failed. Falling back to local model for direct full-screen grounding.")
+            try:
+                grounding_res = self.grounder.ground_element(full_screenshot, instruction)
+                confidence = grounding_res.get("confidence", 0.0)
+                abs_x = grounding_res["x"] * phys_w
+                abs_y = grounding_res["y"] * phys_h
+                logical_x, logical_y = physical_to_logical(abs_x, abs_y)
+                logger.info(f"Local model fallback: grounded at logical ({logical_x}, {logical_y}) "
+                            f"with {confidence:.1%} confidence")
+                return (logical_x, logical_y), confidence
+            except Exception as fallback_err:
+                logger.error(f"Local model fallback also failed: {fallback_err}")
+                return None, 0.0
+
         if not candidates:
             logger.error("No candidate regions proposed by Planner. Element location failed.")
             return None, 0.0

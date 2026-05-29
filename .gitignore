@@ -19,6 +19,10 @@ logs/
 screenshots/*.png
 !screenshots/.gitkeep
 
+# Local model weights (large binary files)
+models/*/
+!models/.gitkeep
+
 # OS specific
 .DS_Store
 Thumbs.db
