@@ -138,8 +138,124 @@ class VisionHead_MultiPatch(nn.Module):
 
 
 class Qwen2_5_VLForConditionalGenerationWithPointer(Qwen2_5_VLForConditionalGeneration):
+
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
+        """
+        Override from_pretrained to remap checkpoint keys for transformers v5.x compatibility.
+        
+        The GUI-Actor checkpoint was saved with transformers v4.x which used flat key names:
+            model.layers.*, model.embed_tokens.*, model.norm.*
+        But transformers v5.x nests these under model.language_model:
+            model.language_model.layers.*, model.language_model.embed_tokens.*, etc.
+        """
+        import os
+        from safetensors.torch import load_file as safetensors_load
+
+        # Check if we need to remap by looking at the checkpoint keys
+        model_path = str(pretrained_model_name_or_path)
+        needs_remap = False
+
+        if os.path.isdir(model_path):
+            # Find safetensors files
+            shard_files = sorted([
+                os.path.join(model_path, f)
+                for f in os.listdir(model_path)
+                if f.endswith('.safetensors') and not f.endswith('.index.json')
+            ])
+            if shard_files:
+                # Quick check: peek at first file's keys
+                first_shard = safetensors_load(shard_files[0])
+                sample_key = next(iter(first_shard.keys()), "")
+                needs_remap = sample_key.startswith("model.layers.") or sample_key.startswith("model.embed_tokens.")
+                del first_shard
+
+        if needs_remap:
+            logger.info("Detected old-format checkpoint keys. Remapping for transformers v5.x compatibility...")
+
+            # Load all shards, remap keys
+            remapped_state_dict = {}
+            for shard_path in shard_files:
+                shard = safetensors_load(shard_path)
+                for key, value in shard.items():
+                    new_key = cls._remap_key(key)
+                    remapped_state_dict[new_key] = value
+                del shard
+
+            logger.info(f"Remapped {len(remapped_state_dict)} keys from checkpoint.")
+
+            # Load model architecture (weights will be random initially)
+            # We pass ignore_mismatched_sizes to avoid errors during initial load
+            original_init_weights = kwargs.pop('_fast_init', True)
+            model = super().from_pretrained(
+                pretrained_model_name_or_path,
+                *model_args,
+                ignore_mismatched_sizes=True,
+                **kwargs
+            )
+
+            # Now load the correctly-remapped weights
+            missing, unexpected = model.load_state_dict(remapped_state_dict, strict=False)
+            # Filter out expected missing keys (pointer head is newly initialized)
+            real_missing = [k for k in missing if 'multi_patch_pointer_head' not in k]
+            if real_missing:
+                logger.warning(f"Still missing {len(real_missing)} keys after remap: {real_missing[:5]}...")
+            if unexpected:
+                logger.warning(f"Unexpected keys after remap: {unexpected[:5]}...")
+            logger.info("Remapped state dict loaded successfully.")
+
+            del remapped_state_dict
+            return model
+        else:
+            # Standard loading path — no remapping needed
+            return super().from_pretrained(
+                pretrained_model_name_or_path, *model_args, **kwargs
+            )
+
+    @staticmethod
+    def _remap_key(key: str) -> str:
+        """
+        Remap a single checkpoint key from v4.x format to v5.x format.
+        
+        v4.x (checkpoint):                    v5.x (expected):
+        model.layers.*                    →   model.language_model.layers.*
+        model.embed_tokens.*              →   model.language_model.embed_tokens.*
+        model.norm.*                      →   model.language_model.norm.*
+        lm_head.*                         →   lm_head.* (unchanged)
+        visual.*                          →   visual.* (unchanged, but may need model. prefix)
+        multi_patch_pointer_head.*        →   multi_patch_pointer_head.* (unchanged)
+        """
+        # Remap text model keys from flat to nested language_model
+        if key.startswith("model.layers."):
+            return key.replace("model.layers.", "model.language_model.layers.", 1)
+        elif key.startswith("model.embed_tokens."):
+            return key.replace("model.embed_tokens.", "model.language_model.embed_tokens.", 1)
+        elif key.startswith("model.norm."):
+            return key.replace("model.norm.", "model.language_model.norm.", 1)
+        # Remap vision encoder keys: visual.* → model.visual.*
+        elif key.startswith("visual."):
+            return "model." + key
+        # Everything else stays the same
+        return key
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # Compatibility shim for transformers v5.x+
+        # In newer versions, Qwen2.5-VL config nests text model attributes
+        # under config.text_config instead of exposing them at the top level.
+        # The VisionHead and forward() code needs these at the top level.
+        if not hasattr(self.config, 'hidden_size') and hasattr(self.config, 'text_config'):
+            text_cfg = self.config.text_config
+            for attr in ('hidden_size', 'vocab_size', 'num_attention_heads',
+                         'num_hidden_layers', 'intermediate_size',
+                         'image_token_id', 'video_token_id',
+                         'pointer_start_token_id', 'pointer_pad_token_id',
+                         'pointer_end_token_id'):
+                if hasattr(text_cfg, attr) and not hasattr(self.config, attr):
+                    setattr(self.config, attr, getattr(text_cfg, attr))
+            logger.info("Applied text_config compatibility shim for transformers v5.x+")
+
         self.multi_patch_pointer_head = VisionHead_MultiPatch(self.config.hidden_size, self.config.hidden_size)
         self.pointer_loss_weight = kwargs.get("pointer_loss_weight", 1.0)
         self.lm_loss_weight = kwargs.get("lm_loss_weight", 1.0)
