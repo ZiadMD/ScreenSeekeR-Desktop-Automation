@@ -48,15 +48,15 @@ The system supports **hybrid mode**: using a cloud API (e.g. Gemini) for plannin
 
 ```mermaid
 graph TB
-    subgraph Entry["🚀 Entry Point"]
+    subgraph Entry["Entry Point"]
         MAIN["main.py<br/>Orchestrator"]
     end
 
-    subgraph API["🌐 API Layer"]
+    subgraph API["API Layer"]
         POSTS["PostClient<br/>JSONPlaceholder"]
     end
 
-    subgraph Grounding["🔍 Grounding Engine"]
+    subgraph Grounding["Grounding Engine"]
         SS["ScreenSeeker<br/>Cascaded Search"]
         PLAN["Planner<br/>Region Proposal"]
         SCORE["Scoring<br/>Rank & NMS"]
@@ -65,19 +65,19 @@ graph TB
         LLM["LLMClient<br/>Provider Router"]
     end
 
-    subgraph LocalModel["🧠 Local Model (Optional)"]
+    subgraph LocalModel["Local Model (Optional)"]
         LMC["LocalModelClient"]
         GUA["GUIActorAdapter"]
         QWEN["Qwen2.5-VL<br/>+ Pointer Head"]
     end
 
-    subgraph Automation["🤖 Automation Layer"]
+    subgraph Automation["Automation Layer"]
         NP["NotepadWorkflow"]
         PH["PopupHandler"]
         DT["Desktop Actions<br/>PyAutoGUI"]
     end
 
-    subgraph Providers["☁️ Cloud Providers"]
+    subgraph Providers["Cloud Providers"]
         GEM["Google Gemini"]
         OAI["OpenAI GPT-4o"]
         GRQ["Groq"]
@@ -127,25 +127,25 @@ The core grounding algorithm follows a **cascaded search** strategy inspired by 
 
 ```mermaid
 flowchart TD
-    START(["🎯 locate_element(instruction)"])
-    CAP["📸 Capture full screenshot<br/>(physical pixels)"]
-    PLAN["🗺️ Planner: propose<br/>candidate regions"]
+    START(["locate_element(instruction)"])
+    CAP["Capture full screenshot<br/>(physical pixels)"]
+    PLAN["Planner: propose<br/>candidate regions"]
     PLAN_FAIL{"Planner<br/>succeeded?"}
-    FALLBACK["🔄 Local model fallback:<br/>ground full screenshot directly"]
-    SCORE["📊 Score candidates:<br/>Confidence × Gaussian Centrality"]
-    NMS["🧹 Apply NMS<br/>(IoU threshold filtering)"]
-    LOOP["🔁 For each candidate<br/>(ranked by score)"]
-    CROP["✂️ Crop region from screenshot"]
-    GROUND["🎯 Grounder: locate element<br/>within crop"]
+    FALLBACK["Local model fallback:<br/>ground full screenshot directly"]
+    SCORE["Score candidates:<br/>Confidence × Gaussian Centrality"]
+    NMS["Apply NMS<br/>(IoU threshold filtering)"]
+    LOOP["For each candidate<br/>(ranked by score)"]
+    CROP["Crop region from screenshot"]
+    GROUND["Grounder: locate element<br/>within crop"]
     CONF_CHECK{"confidence ≥<br/>threshold?"}
     HIGH_CHECK{"confidence ≥<br/>0.85?"}
     NEXT["Next candidate"]
     CONFIRM{"Confirmation<br/>step enabled?"}
-    REFINE["🔬 Refine: re-ground in<br/>tight 200×200 crop"]
-    DPI["📐 Physical → Logical<br/>coordinate conversion"]
-    ANNOTATE["🖼️ Annotate & save<br/>trace screenshot"]
-    RESULT(["✅ Return (x, y), confidence"])
-    FAIL(["❌ Return None, 0.0"])
+    REFINE["Refine: re-ground in<br/>tight 200×200 crop"]
+    DPI["Physical → Logical<br/>coordinate conversion"]
+    ANNOTATE["Annotate & save<br/>trace screenshot"]
+    RESULT(["Return (x, y), confidence"])
+    FAIL(["Return None, 0.0"])
 
     START --> CAP --> PLAN --> PLAN_FAIL
     PLAN_FAIL -->|Yes, has candidates| SCORE
@@ -181,7 +181,7 @@ logical_y = physical_y / DPI_SCALING
 
 ```mermaid
 graph LR
-    SCREEN["🖥️ Physical Screen<br/>2112 × 1188 px"]
+    SCREEN["Physical Screen<br/>2112 × 1188 px"]
     MSS["mss.grab()"]
     PIL["PIL Image<br/>(physical pixels)"]
     GROUND["Grounding Pipeline<br/>(all coords in physical px)"]
@@ -257,7 +257,7 @@ graph TD
 
     subgraph Results
         S1["Score = 0.8 × 0.57 = 0.456"]
-        S2["Score = 0.7 × 1.00 = 0.700 ✅ Top"]
+        S2["Score = 0.7 × 1.00 = 0.700 | Top"]
         S3["Score = 0.6 × 0.32 = 0.192"]
     end
 
@@ -370,7 +370,7 @@ graph LR
     CROP200["Crop 200×200 px<br/>around predicted center"]
     REGROUND["Re-run Grounder<br/>on tight crop"]
     ACCEPT{"Refinement<br/>conf ≥ 0.30?"}
-    REFINED["Use refined<br/>coordinates ✅"]
+    REFINED["Use refined<br/>coordinates"]
     ORIGINAL["Keep original<br/>coordinates"]
 
     BEST --> CROP200 --> REGROUND --> ACCEPT
@@ -408,13 +408,13 @@ graph TD
         direction TB
         SS["ScreenSeeker"]
 
-        subgraph Cloud["☁️ Cloud (Planner)"]
+        subgraph Cloud["Cloud (Planner)"]
             PLAN_C["Planner"]
             LLM_C["LLMClient<br/>provider=gemini"]
             GEMINI["Gemini API"]
         end
 
-        subgraph Local["🖥️ Local (Grounder)"]
+        subgraph Local["Local (Grounder)"]
             GND_L["Grounder"]
             LLM_L["LLMClient<br/>provider=local"]
             LMC["LocalModelClient"]
@@ -426,7 +426,7 @@ graph TD
         SS --> GND_L --> LLM_L --> LMC --> ADAPTER --> MODEL
     end
 
-    subgraph Fallback["🔄 Fallback"]
+    subgraph Fallback["Fallback"]
         FALL["If Planner API fails →<br/>Local model grounds<br/>full screenshot directly"]
     end
 
@@ -449,8 +449,8 @@ GUI-Actor is a **3B-parameter vision-language model** based on Qwen2.5-VL, fine-
 ```mermaid
 graph TD
     subgraph Input
-        IMG["🖼️ Screenshot"]
-        INST["📝 Instruction:<br/>'Click on Notepad icon'"]
+        IMG["Screenshot"]
+        INST["Instruction:<br/>'Click on Notepad icon'"]
     end
 
     subgraph Preprocessing
@@ -664,17 +664,17 @@ flowchart TD
     CLEAN["Close any existing<br/>Notepad windows"]
 
     subgraph Loop["For each of 10 posts"]
-        POPUP["👀 Check & dismiss<br/>unexpected popups"]
-        LAUNCH["🔍 Locate Notepad icon<br/>via ScreenSeeker"]
-        DCLICK["🖱️ Double-click to launch"]
-        WAIT["⏳ Wait for Notepad<br/>window to appear"]
-        TYPE["⌨️ Type formatted post<br/>content"]
-        SAVE["💾 Ctrl+S → type path<br/>→ Enter"]
-        VERIFY["✅ Verify file exists<br/>on disk"]
-        CLOSE["🚪 Close Notepad window"]
+        POPUP["Check & dismiss<br/>unexpected popups"]
+        LAUNCH["Locate Notepad icon<br/>via ScreenSeeker"]
+        DCLICK["Double-click to launch"]
+        WAIT["Wait for Notepad<br/>window to appear"]
+        TYPE["Type formatted post<br/>content"]
+        SAVE["Ctrl+S → type path<br/>→ Enter"]
+        VERIFY["Verify file exists<br/>on disk"]
+        CLOSE["Close Notepad window"]
     end
 
-    SUMMARY(["📊 Print success/failure summary"])
+    SUMMARY(["Print success/failure summary"])
 
     START --> FETCH --> INIT --> CLEAN --> Loop
     Loop --> POPUP --> LAUNCH --> DCLICK --> WAIT
