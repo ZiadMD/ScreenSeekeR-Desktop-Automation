@@ -222,7 +222,7 @@ class ScreenSeeker:
                 ref_conf = ref_grounding.get("confidence", 0.0)
                 
                 # If refinement is successful and confidence is high, accept refinement coordinates
-                if ref_conf >= 0.30:
+                if ref_conf >= 0.10:
                     ref_abs_bbox, ref_abs_center = map_relative_to_absolute(
                         rel_x=ref_grounding["x"],
                         rel_y=ref_grounding["y"],
