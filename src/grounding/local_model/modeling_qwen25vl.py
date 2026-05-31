@@ -167,7 +167,10 @@ class Qwen2_5_VLForConditionalGenerationWithPointer(Qwen2_5_VLForConditionalGene
                 # Quick check: peek at first file's keys
                 first_shard = safetensors_load(shard_files[0])
                 sample_key = next(iter(first_shard.keys()), "")
-                needs_remap = sample_key.startswith("model.layers.") or sample_key.startswith("model.embed_tokens.")
+                needs_remap = any(
+                    k.startswith("model.layers.") or k.startswith("model.embed_tokens.")
+                    for k in first_shard.keys()
+                )
                 del first_shard
 
         if needs_remap:
@@ -271,6 +274,13 @@ class Qwen2_5_VLForConditionalGenerationWithPointer(Qwen2_5_VLForConditionalGene
             self.model.embed_tokens = self.model.language_model.embed_tokens
             logger.info("Applied model structure compatibility shim: embed_tokens aliased for v5.x+")
 
+        # In transformers v5.x, the visual encoder moved from self.visual → self.model.visual.
+        # The forward() and gui_actor_adapter.py code references self.visual directly,
+        # so we alias it here if missing.
+        if not hasattr(self, 'visual') and hasattr(self.model, 'visual'):
+            self.visual = self.model.visual
+            logger.info("Applied visual encoder compatibility shim: self.visual aliased from self.model.visual for v5.x+")
+
         self.multi_patch_pointer_head = VisionHead_MultiPatch(self.config.hidden_size, self.config.hidden_size)
         self.pointer_loss_weight = kwargs.get("pointer_loss_weight", 1.0)
         self.lm_loss_weight = kwargs.get("lm_loss_weight", 1.0)
@@ -324,7 +334,8 @@ class Qwen2_5_VLForConditionalGenerationWithPointer(Qwen2_5_VLForConditionalGene
             inputs_embeds = self.model.embed_tokens(input_ids)
             if pixel_values is not None:
                 pixel_values = pixel_values.type(self.visual.dtype)
-                image_embeds = self.visual(pixel_values, grid_thw=image_grid_thw)
+                _visual_out = self.visual(pixel_values, grid_thw=image_grid_thw)
+                image_embeds = _visual_out.last_hidden_state if hasattr(_visual_out, 'last_hidden_state') else _visual_out
                 n_image_tokens = (input_ids == self.config.image_token_id).sum().item()
                 n_image_features = image_embeds.shape[0]
                 if n_image_tokens != n_image_features:
@@ -342,7 +353,8 @@ class Qwen2_5_VLForConditionalGenerationWithPointer(Qwen2_5_VLForConditionalGene
 
             if pixel_values_videos is not None:
                 pixel_values_videos = pixel_values_videos.type(self.visual.dtype)
-                video_embeds = self.visual(pixel_values_videos, grid_thw=video_grid_thw)
+                _visual_out = self.visual(pixel_values_videos, grid_thw=video_grid_thw)
+                video_embeds = _visual_out.last_hidden_state if hasattr(_visual_out, 'last_hidden_state') else _visual_out
                 n_video_tokens = (input_ids == self.config.video_token_id).sum().item()
                 n_video_features = video_embeds.shape[0]
                 if n_video_tokens != n_video_features:
