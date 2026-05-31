@@ -78,11 +78,19 @@ class Planner:
                 c["x_max"] = max(0.0, min(1.0, float(c.get("x_max", 1.0))))
                 c["y_max"] = max(0.0, min(1.0, float(c.get("y_max", 1.0))))
                 
-                # Make sure max is larger than min
-                if c["x_max"] <= c["x_min"]:
-                    c["x_max"] = min(1.0, c["x_min"] + 0.15)
-                if c["y_max"] <= c["y_min"]:
-                    c["y_max"] = min(1.0, c["y_min"] + 0.15)
+            MIN_BOX_SIZE = 0.05
+            if (c["x_max"] - c["x_min"]) < MIN_BOX_SIZE:
+                # Try expanding max first, then pull min back if at edge
+                if c["x_max"] < 1.0 - MIN_BOX_SIZE:
+                    c["x_max"] = c["x_min"] + MIN_BOX_SIZE
+                else:
+                    c["x_min"] = max(0.0, c["x_max"] - MIN_BOX_SIZE)
+
+            if (c["y_max"] - c["y_min"]) < MIN_BOX_SIZE:
+                if c["y_max"] < 1.0 - MIN_BOX_SIZE:
+                    c["y_max"] = c["y_min"] + MIN_BOX_SIZE
+                else:
+                    c["y_min"] = max(0.0, c["y_max"] - MIN_BOX_SIZE)
                     
             return parsed
             

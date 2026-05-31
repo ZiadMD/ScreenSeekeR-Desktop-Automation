@@ -19,6 +19,7 @@ dependencies = [
     "pydantic-settings>=2.1.0",
     "python-dotenv>=1.0.1",
     "loguru>=0.7.2",
+    
 ]
 
 [dependency-groups]
@@ -27,7 +28,7 @@ dev = [
 ]
 local = [
     "torch>=2.1.0",
-    "transformers>=4.45.0",
+    "transformers==4.49.0",
     "accelerate>=0.30.0",
     "qwen-vl-utils>=0.0.8",
     "torchvision>=0.16.0",

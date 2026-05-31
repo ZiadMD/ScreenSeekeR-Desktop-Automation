@@ -222,6 +222,10 @@ class GUIActorAdapter:
         )
         inputs = inputs.to(self._model.device)
 
+        # Remove keys the model's generate() doesn't accept
+        # (newer transformers processors may produce mm_token_type_ids)
+        inputs.pop("mm_token_type_ids", None)
+
         # Reset the logits processor state for this inference
         self._logits_processor.force_queue = []
 

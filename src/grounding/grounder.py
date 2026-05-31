@@ -34,12 +34,15 @@ class Grounder:
         self.client = client or LLMClient()
 
     def ground_element(self, crop: Image.Image, instruction: str) -> Dict[str, Any]:
-        """
-        Sends the crop and target instruction to the Vision MLLM.
-        Returns a dictionary containing normalized coordinates, size, confidence, and reasoning.
-        """
         user_prompt = USER_PROMPT_TEMPLATE.format(instruction=instruction)
-        
+
+        # Guard: reject crops that are too small for meaningful grounding
+        if crop.width < 24 or crop.height < 24:
+            logger.warning(f"Crop too small ({crop.width}x{crop.height}), skipping grounding.")
+            return {"x": 0.5, "y": 0.5, "width": 0.5, "height": 0.5, "confidence": 0.0, "reasoning": "Crop too small"}
+
+        # Ensure RGB mode — PIL can fail on RGBA or palette images when encoding
+        crop = crop.convert("RGB")
         logger.info(f"Grounding instruction '{instruction}' in cropped region of size {crop.width}x{crop.height}...")
         
         try:

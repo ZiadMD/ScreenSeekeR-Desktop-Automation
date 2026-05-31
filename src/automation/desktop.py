@@ -7,12 +7,13 @@ pyautogui.FAILSAFE = True
 pyautogui.PAUSE = 0.5  # Add a 500ms delay between PyAutoGUI actions for UI stability
 
 def click_at(x: int, y: int, double: bool = False):
-    """
-    Moves mouse smoothly to the logical screen coordinate and performs a click.
-    """
+    # Clamp to safe screen bounds — avoid fail-safe corners
+    x = max(10, int(x))
+    y = max(10, int(y))
+
     logger.info(f"Moving mouse to ({x}, {y}) and performing {'double-click' if double else 'single-click'}...")
-    # Move smoothly to coordinates over 0.6 seconds
     pyautogui.moveTo(x, y, duration=0.6, tween=pyautogui.easeInOutQuad)
+    
     time.sleep(0.2)
     
     if double:

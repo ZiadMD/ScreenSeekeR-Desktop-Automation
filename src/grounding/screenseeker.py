@@ -128,11 +128,25 @@ class ScreenSeeker:
             y_max_phys = int(cand["y_max"] * phys_h)
             
             crop_box_phys = (x_min_phys, y_min_phys, x_max_phys, y_max_phys)
+
+            # Skip crops that are too small to ground reliably
+            crop_w = x_max_phys - x_min_phys
+            crop_h = y_max_phys - y_min_phys
+            if crop_w < settings.MIN_PATCH_SIZE or crop_h < settings.MIN_PATCH_SIZE:
+                logger.warning(f"Candidate {i+1} crop too small ({crop_w}x{crop_h}px), skipping.")
+                continue
+                
             search_traces.append((float(x_min_phys), float(y_min_phys), float(x_max_phys), float(y_max_phys)))
             
             # Crop search region from full physical screenshot
             crop_img = full_screenshot.crop(crop_box_phys)
             
+            # Guard: skip degenerate crops that PIL/Gemini can't handle
+            # 50 coz it failed to detect Large icons i think
+            if crop_img.width < 50 or crop_img.height < 50:
+                logger.warning(f"Skipping candidate {i+1}: degenerate crop size {crop_img.width}x{crop_img.height}")
+                continue
+
             # Call Grounder within the crop
             try:
                 grounding_res = self.grounder.ground_element(crop_img, instruction)
