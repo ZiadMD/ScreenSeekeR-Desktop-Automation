@@ -196,12 +196,20 @@ class Qwen2_5_VLForConditionalGenerationWithPointer(Qwen2_5_VLForConditionalGene
 
             # Now load the correctly-remapped weights
             missing, unexpected = model.load_state_dict(remapped_state_dict, strict=False)
-            # Filter out expected missing keys (pointer head is newly initialized)
-            real_missing = [k for k in missing if 'multi_patch_pointer_head' not in k]
+            # Filter out expected missing keys (pointer head is newly initialized,
+            # lm_head.weight is tied to embed_tokens when tie_word_embeddings=True)
+            expected_missing = {'multi_patch_pointer_head', 'lm_head.weight'}
+            real_missing = [k for k in missing if not any(em in k for em in expected_missing)]
             if real_missing:
                 logger.warning(f"Still missing {len(real_missing)} keys after remap: {real_missing[:5]}...")
             if unexpected:
                 logger.warning(f"Unexpected keys after remap: {unexpected[:5]}...")
+
+            # Re-tie lm_head to embed_tokens if configured
+            if getattr(model.config, 'tie_word_embeddings', False):
+                model.tie_weights()
+                logger.info("Re-tied lm_head.weight to embed_tokens.weight")
+
             logger.info("Remapped state dict loaded successfully.")
 
             del remapped_state_dict
