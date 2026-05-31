@@ -264,6 +264,13 @@ class Qwen2_5_VLForConditionalGenerationWithPointer(Qwen2_5_VLForConditionalGene
                     setattr(self.config, attr, getattr(text_cfg, attr))
             logger.info("Applied text_config compatibility shim for transformers v5.x+")
 
+        # Structural compatibility: in transformers v5.x, the inner model structure changed.
+        # embed_tokens moved from self.model.embed_tokens → self.model.language_model.embed_tokens
+        # Create an alias so the v4-style forward() code works unchanged.
+        if hasattr(self.model, 'language_model') and not hasattr(self.model, 'embed_tokens'):
+            self.model.embed_tokens = self.model.language_model.embed_tokens
+            logger.info("Applied model structure compatibility shim: embed_tokens aliased for v5.x+")
+
         self.multi_patch_pointer_head = VisionHead_MultiPatch(self.config.hidden_size, self.config.hidden_size)
         self.pointer_loss_weight = kwargs.get("pointer_loss_weight", 1.0)
         self.lm_loss_weight = kwargs.get("lm_loss_weight", 1.0)
