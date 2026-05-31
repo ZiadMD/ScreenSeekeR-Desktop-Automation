@@ -37,7 +37,7 @@ class Grounder:
         user_prompt = USER_PROMPT_TEMPLATE.format(instruction=instruction)
 
         # Guard: reject crops that are too small for meaningful grounding
-        if crop.width < 50 or crop.height < 50:
+        if crop.width < 24 or crop.height < 24:
             logger.warning(f"Crop too small ({crop.width}x{crop.height}), skipping grounding.")
             return {"x": 0.5, "y": 0.5, "width": 0.5, "height": 0.5, "confidence": 0.0, "reasoning": "Crop too small"}
 
