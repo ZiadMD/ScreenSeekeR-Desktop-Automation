@@ -109,7 +109,7 @@ sequenceDiagram
 
 ## 📊 Live Run Analysis
 
-The following data is from a real execution on 2026-05-29 processing 10 posts with `gemini-2.0-flash` (the logs used the `gemini-3.1-flash-lite` model name during that run).
+The following data is from a real execution on 2026-05-29 processing 10 posts with `gemini-3.1-flash-lite`.
 
 | Metric | Value |
 |--------|-------|
