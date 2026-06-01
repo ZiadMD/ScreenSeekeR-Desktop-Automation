@@ -133,7 +133,7 @@ The following data is from a real execution on 2026-05-29 processing 10 posts wi
 **Failure modes observed:**
 
 - Posts 7 and 10 failed. Post 7's save dialog likely didn't receive the typed path correctly (timing issue). Post 10's third grounding attempt produced a `0×0` crop — the fallback sent the mouse to `(1920, 1080)`, triggering PyAutoGUI's fail-safe.
-- Several iterations produced **degenerate zero-height crops** (`97×0`, `61×0`, `107×0`). The Planner returned bounding boxes where `y_min ≈ y_max`, causing a PIL allocation error. This is a known issue (see [TODO](#-todo)).
+- Several iterations produced **degenerate zero-height crops** (`97×0`, `61×0`, `107×0`). The Planner returned bounding boxes where `y_min ≈ y_max`, causing a PIL allocation error.
 
 ---
 
